@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오늘 뭐 먹지?</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header><div class="wrap header-inner"><h1>오늘 뭐 먹지?</h1><p>우리끼리 공유하는 학원 근처 맛집 지도.</p></div></header>
+<main class="wrap">
+  <div class="toolbar">
+    <div id="authStatus" class="auth-status">로그인하지 않음</div>
+    <div class="toolbar-actions">
+      <button class="btn small" id="loginBtn">로그인</button>
+      <button class="btn small" id="logoutBtn" hidden>로그아웃</button>
+      <button class="btn small primary" id="addBtn" hidden>+ 식당 추가</button>
+    </div>
+  </div>
+  <div id="map"></div>
+  <p class="map-note" id="mapNote">지도를 불러오는 중...</p>
+  <div class="list" id="list"><div class="empty">식당 정보를 불러오는 중...</div></div>
+</main>
+
+<div class="overlay" id="detailOverlay"><div class="sheet" id="detailSheet"></div></div>
+<div class="overlay" id="formOverlay"><div class="sheet">
+  <button class="close-x" id="formClose">✕</button><h2 id="formTitle">식당 추가</h2>
+  <form id="foodForm">
+    <label>상호</label><input name="name" required placeholder="예: 명동칼국수">
+    <label>주소</label><input name="address" required placeholder="예: 서울 강남구 ...">
+    <label>학원에서 도보 시간 (분)</label><input name="walkMin" type="number" min="0" placeholder="예: 7">
+    <label>대표메뉴 / 가격</label><input name="menu" placeholder="예: 칼국수 8,000원">
+    <label>전화번호</label><input name="phone" placeholder="예: 02-1234-5678">
+    <label>네이버 지도 링크</label><input name="naverUrl" type="url" placeholder="https://map.naver.com/...">
+    <label>카카오맵 링크</label><input name="kakaoUrl" type="url" placeholder="https://place.map.kakao.com/...">
+    <div class="form-actions"><button type="button" class="btn" id="geocodeBtn">📍 주소로 위치 찾기</button><span id="geoStatus" class="hint"></span></div>
+    <div class="form-actions"><button type="submit" class="btn primary grow">저장</button><button type="button" class="btn danger" id="deleteBtn" hidden>삭제</button></div>
+  </form>
+</div></div>
+
+<div class="overlay" id="authOverlay"><div class="sheet">
+  <button class="close-x" id="authClose">✕</button><h2>로그인</h2>
+  <p class="hint">식당 정보는 관리자만 추가·수정·삭제할 수 있어요. 일반 사용자는 로그인 후 리뷰를 작성할 수 있어요.</p>
+  <form id="authForm">
+    <label>이메일</label><input id="email" type="email" required autocomplete="email">
+    <label>비밀번호</label><input id="password" type="password" required minlength="6" autocomplete="current-password">
+    <div class="form-actions"><button type="submit" class="btn primary grow">로그인</button><button type="button" class="btn" id="signupBtn">회원가입</button></div>
+    <p id="authMessage" class="hint"></p>
+  </form>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=0224242030f34b66b94d58cfb0786c40&libraries=services&autoload=false"></script>
+<script src="app.js"></script>
+</body>
+</html>
