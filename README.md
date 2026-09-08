@@ -52,3 +52,4 @@ GitHub Pages로 배포할 주소를 Kakao Developers의 JavaScript SDK 허용 �
 - Supabase Publishable/anon Key: RLS가 올바르게 설정된 경우 프론트엔드 공개 가능
 - Supabase service_role/secret Key: 절대 프론트엔드에 넣지 않음
 - 식당 CRUD: DB RLS에서 관리자만 허용
+
