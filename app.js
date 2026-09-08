@@ -101,7 +101,31 @@ function loadKakaoMap(){
   kakao.maps.load(()=>{const center=ACADEMY.lat&&ACADEMY.lng?new kakao.maps.LatLng(ACADEMY.lat,ACADEMY.lng):new kakao.maps.LatLng(37.5665,126.978);state.map=new kakao.maps.Map($('#map'),{center,level:4});$('#mapNote').textContent='카카오맵';plotMarkers()});
 }
 function clearMarkers(){state.markers.forEach(m=>m.setMap(null));state.markers=[]}
-function plotMarkers(){if(!state.map||!window.kakao)return;clearMarkers();const rows=state.restaurants.filter(r=>r.lat!=null&&r.lng!=null);const bounds=new kakao.maps.LatLngBounds();rows.forEach(r=>{const pos=new kakao.maps.LatLng(r.lat,r.lng),m=new kakao.maps.Marker({position:pos,map:state.map});kakao.maps.event.addListener(m,'click',()=>openDetail(r.id));state.markers.push(m);bounds.extend(pos)});if(rows.length)state.map.setBounds(bounds)}
+function plotMarkers(){
+  if(!state.map||!window.kakao)return;
+  clearMarkers();
+  const rows=state.restaurants.filter(r=>r.lat!=null&&r.lng!=null);
+  const bounds=new kakao.maps.LatLngBounds();
+  rows.forEach(r=>{
+    const pos=new kakao.maps.LatLng(r.lat,r.lng);
+    const m=new kakao.maps.Marker({position:pos,map:state.map});
+    kakao.maps.event.addListener(m,'click',()=>openDetail(r.id));
+    state.markers.push(m);
+
+    // 마커 위에 상호명 라벨
+    const label=new kakao.maps.CustomOverlay({
+      position:pos,
+      yAnchor:2.2,
+      content:`<div style="padding:2px 8px;background:#2B2E4A;color:#fff;border-radius:6px;font-size:12px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);">${escapeHtml(r.name)}</div>`
+    });
+    label.setMap(state.map);
+    kakao.maps.event.addListener(m,'click',()=>openDetail(r.id));
+    state.markers.push(label);
+
+    bounds.extend(pos);
+  });
+  if(rows.length)state.map.setBounds(bounds);
+}
 function geocodeAddress(address){return new Promise((resolve,reject)=>{if(!window.kakao?.maps?.services)return reject('no sdk');const geocoder=new kakao.maps.services.Geocoder();geocoder.addressSearch(address,(result,status)=>{if(status===kakao.maps.services.Status.OK)resolve({lat:parseFloat(result[0].y),lng:parseFloat(result[0].x)});else reject(status)})})}
 
 $('#loginBtn').onclick=()=>show('#authOverlay');$('#authClose').onclick=()=>hide('#authOverlay');
