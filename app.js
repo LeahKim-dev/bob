@@ -109,7 +109,7 @@ function renderList(){
       <div>
         <h3><span class="cat-badge" style="background:${categoryColor(r.category)}"></span>${escapeHtml(r.name)}</h3>
         <span class="chip">🚶 ${r.walk_min??'?'}분</span>
-        <span class="chip">${escapeHtml(r.menu||'메뉴 미등록')}</span>
+        <span class="chip">${escapeHtml(r.category||'기타')}</span>
         <span class="chip">⭐ ${avg? avg.toFixed(1)+' ('+ratingCount(r)+')' : '평점 없음'}</span>
       </div>
       <button class="fav-btn" data-fav="${r.id}">${isFav?'❤️':'🤍'}</button>
@@ -259,11 +259,9 @@ function plotMarkers(){
     const label=new kakao.maps.CustomOverlay({
       position:pos,
       yAnchor:2.2,
-      content:`<div style="padding:2px 8px;background:${color};color:#fff;border-radius:6px;font-size:12px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer;">${escapeHtml(r.name)}</div>`
+      content:`<div onclick="window.openDetail('${r.id}')" style="padding:2px 8px;background:${color};color:#fff;border-radius:6px;font-size:12px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.3);cursor:pointer;">${escapeHtml(r.name)}</div>`
     });
     label.setMap(state.map);
-    // 라벨 클릭도 상세보기로 연결
-    kakao.maps.event.addListener(m,'click',()=>openDetail(r.id));
     state.markers.push(label);
 
     bounds.extend(pos);
@@ -275,7 +273,10 @@ function geocodeAddress(address){return new Promise((resolve,reject)=>{if(!windo
 $('#loginBtn').onclick=()=>show('#authOverlay');$('#authClose').onclick=()=>hide('#authOverlay');
 $('#authForm').onsubmit=async e=>{e.preventDefault();const email=$('#email').value.trim(),password=$('#password').value;const {error}=await db.auth.signInWithPassword({email,password});$('#authMessage').textContent=error?error.message:'로그인되었습니다.';if(!error)hide('#authOverlay')};
 $('#kakaoLoginBtn')?.addEventListener('click', async ()=>{
-  const {error}=await db.auth.signInWithOAuth({provider:'kakao', options:{redirectTo: location.href}});
+  const {error}=await db.auth.signInWithOAuth({
+    provider: 'kakao',
+    options: { redirectTo: location.href, scopes: 'profile_nickname profile_image' }
+  });
   if(error) $('#authMessage').textContent = error.message;
 });
 $('#logoutBtn').onclick=async()=>{await db.auth.signOut()};
