@@ -109,6 +109,12 @@ function renderList(){
   $$('.food-card').forEach(el=>el.addEventListener('click',()=>openDetail(el.dataset.id)));
 }
 
+function openLightbox(url){
+  $('#lightboxImg').src = url;
+  show('#imageLightbox');
+}
+window.openLightbox = openLightbox;
+
 async function openDetail(id){
   const r=state.restaurants.find(x=>String(x.id)===String(id));if(!r)return;
   const {data:reviews}=await db.from('reviews').select('id,rating,content,author_name,created_at').eq('restaurant_id',r.id).order('created_at',{ascending:false});
@@ -134,7 +140,7 @@ async function openDetail(id){
     </div>` : '';
 
   $('#detailSheet').innerHTML=`<button class="close-x" id="detailClose">✕</button>
-    ${r.image_url?`<img class="detail-image" src="${escapeHtml(r.image_url)}" alt="${escapeHtml(r.name)}">`:''}
+    ${r.image_url?`<img class="detail-image" src="${escapeHtml(r.image_url)}" alt="${escapeHtml(r.name)}" style="cursor:zoom-in;" onclick="window.openLightbox('${escapeHtml(r.image_url)}')">`:''}
     <h2><span class="cat-badge" style="background:${categoryColor(r.category)}"></span>${escapeHtml(r.name)}</h2>
     <div class="row" style="align-items:center;">
       <span>${starsText(avg)}</span>
