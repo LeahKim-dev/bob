@@ -122,28 +122,23 @@ async function openDetail(id){
   const avg=ratingAvg(r);
 
   const reviewFormHtml = `
-    <div class="form-actions">
-      <input id="reviewAuthor" placeholder="이름 (선택)" style="flex:1">
-      <select id="reviewRating">
-        <option value="5">★★★★★</option><option value="4">★★★★☆</option>
-        <option value="3">★★★☆☆</option><option value="2">★★☆☆☆</option><option value="1">★☆☆☆☆</option>
-      </select>
-    </div>
-    <textarea id="reviewContent" rows="3" placeholder="먹어본 후기를 남겨주세요."></textarea>
-    <div class="form-actions"><button class="btn primary" id="reviewSubmit">리뷰 등록</button></div>`;
+    <p class="hint" style="margin:4px 0 6px;">별점을 눌러 리뷰를 남겨보세요.</p>
+    <div class="star-picker-static" style="font-size:1.8rem; letter-spacing:4px; cursor:pointer;">
+      ${[1,2,3,4,5].map(n=>`<span data-star="${n}" style="color:#D8CBA8;">★</span>`).join('')}
+    </div>`;
 
   const routeLinks = (r.lat!=null && r.lng!=null && ACADEMY.lat!=null && ACADEMY.lng!=null) ? `
-    <div class="links" style="display:flex;gap:8px;align-items:center;margin-top:2px;">
+    <div class="links" style="display:flex;gap:0;align-items:center;margin-top:2px;">
       <a target="_blank" rel="noopener" title="카카오맵 길찾기 (도보)"
          href="http://m.map.kakao.com/scheme/route?sp=${ACADEMY.lat},${ACADEMY.lng}&ep=${r.lat},${r.lng}&by=foot"
          style="position:relative;display:block;">
-        <img src="kakao-icon.svg" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;">
+        <img src="kakao-icon.svg" style="width:32px;height:32px;border-radius:8px 0 0 8px;object-fit:cover;display:block;">
         <span style="position:absolute;bottom:-4px;right:-4px;background:#fff;border-radius:6px;font-size:10px;line-height:1;padding:1px 2px;box-shadow:0 1px 2px rgba(0,0,0,.3);">🚶</span>
       </a>
       <a target="_blank" rel="noopener" title="네이버지도 길찾기 (도보)"
          href="nmap://route/walk?slat=${ACADEMY.lat}&slng=${ACADEMY.lng}&sname=${encodeURIComponent(ACADEMY.name||'학원')}&dlat=${r.lat}&dlng=${r.lng}&dname=${encodeURIComponent(r.name)}&appname=${encodeURIComponent(location.href)}"
          style="position:relative;display:block;">
-        <img src="naver-icon.webp" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;">
+        <img src="naver-icon.webp" style="width:32px;height:32px;border-radius:0 8px 8px 0;object-fit:cover;display:block;">
         <span style="position:absolute;bottom:-4px;right:-4px;background:#fff;border-radius:6px;font-size:10px;line-height:1;padding:1px 2px;box-shadow:0 1px 2px rgba(0,0,0,.3);">🚶</span>
       </a>
     </div>` : '';
@@ -168,11 +163,11 @@ async function openDetail(id){
     </div>
     ${r.hours?`<p><strong>영업시간</strong><br>${escapeHtml(r.hours)}</p>`:''}
     <p><strong>대표메뉴</strong><br>${escapeHtml(r.menu||'미등록')}</p>
-    <div class="links" style="display:flex;gap:8px;align-items:center;">
+    <div class="links" style="display:flex;gap:0;align-items:center;">
       ${r.naver_url?`<a href="${escapeHtml(r.naver_url)}" target="_blank" rel="noopener" title="네이버지도에서 보기">
-         <img src="naver-icon.webp" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;"></a>`:''}
+         <img src="naver-icon.webp" style="width:32px;height:32px;border-radius:8px 0 0 8px;object-fit:cover;display:block;"></a>`:''}
       ${r.kakao_url?`<a href="${escapeHtml(r.kakao_url)}" target="_blank" rel="noopener" title="카카오맵에서 보기">
-         <img src="kakao-icon.svg" style="width:32px;height:32px;border-radius:8px;object-fit:cover;display:block;"></a>`:''}
+         <img src="kakao-icon.svg" style="width:32px;height:32px;border-radius:0 8px 8px 0;object-fit:cover;display:block;"></a>`:''}
     </div>
     ${routeLinks}
     ${isAdmin()?'<div class="form-actions"><button class="btn" id="editThisBtn">수정</button></div>':''}
@@ -181,17 +176,43 @@ async function openDetail(id){
 
   show('#detailOverlay');$('#detailClose').onclick=()=>hide('#detailOverlay');
   if(isAdmin())$('#editThisBtn').onclick=()=>{hide('#detailOverlay');openForm(r)};
-  $('#reviewSubmit').onclick=()=>submitReview(r.id);
+  $$('.star-picker-static span').forEach(s=>{
+    s.addEventListener('click', ()=> openReviewPopup(r.id, Number(s.dataset.star)));
+  });
 }
 
-async function submitReview(restaurantId){
-  const content = $('#reviewContent').value.trim();
-  const rating = Number($('#reviewRating').value);
-  const authorName = $('#reviewAuthor').value.trim() || null;
-  if(!content) return alert('리뷰 내용을 입력해주세요.');
-  const { error } = await db.from('reviews').insert({ restaurant_id: restaurantId, rating, content, author_name: authorName });
-  if(error) alert('리뷰 등록 실패: ' + error.message);
-  else { await loadRatings(); openDetail(restaurantId); }
+function openReviewPopup(restaurantId, initialRating){
+  let picked = initialRating;
+  $('#reviewSheet').innerHTML = `
+    <button class="close-x" id="reviewPopupClose">✕</button>
+    <h2>리뷰 남기기</h2>
+    <div class="star-picker" id="reviewPopupStars" style="font-size:1.8rem; letter-spacing:4px; cursor:pointer;">
+      ${[1,2,3,4,5].map(n=>`<span data-star="${n}" style="color:${n<=picked?'#D9A441':'#D8CBA8'};">★</span>`).join('')}
+    </div>
+    <label>닉네임 (선택)</label>
+    <input id="popupAuthor" placeholder="예: 익명의 학원생">
+    <label>후기</label>
+    <textarea id="popupContent" rows="4" placeholder="먹어본 후기를 남겨주세요."></textarea>
+    <div class="form-actions"><button class="btn primary grow" id="popupSubmit">등록</button></div>`;
+
+  $$('#reviewPopupStars span').forEach(s=>{
+    s.addEventListener('click', ()=>{
+      picked = Number(s.dataset.star);
+      $$('#reviewPopupStars span').forEach(x=> x.style.color = Number(x.dataset.star)<=picked ? '#D9A441' : '#D8CBA8');
+    });
+  });
+  $('#reviewPopupClose').onclick = ()=> hide('#reviewOverlay');
+  $('#popupSubmit').onclick = async ()=>{
+    const content = $('#popupContent').value.trim();
+    if(!content) return alert('후기 내용을 입력해주세요.');
+    const authorName = $('#popupAuthor').value.trim() || null;
+    const { error } = await db.from('reviews').insert({ restaurant_id: restaurantId, rating: picked, content, author_name: authorName });
+    if(error){ alert('리뷰 등록 실패: ' + error.message); return; }
+    hide('#reviewOverlay');
+    await loadRatings();
+    openDetail(restaurantId);
+  };
+  show('#reviewOverlay');
 }
 
 function renderImagePreview(){
