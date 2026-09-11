@@ -1,6 +1,6 @@
 /* =========================
    오늘 뭐 먹지? - Supabase + Kakao
-   (관리자 로그인=식당 관리, 카카오 로그인=일반 사용자/찜, 리뷰는 누구나)
+   (관리자 로그인=식당 관리, 리뷰는 누구나)
    ========================= */
 const SUPABASE_URL = 'https://awutnyafwvdytgguuhjr.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Kj8Yj4sHEMO7vtgHaBQf1A_EwCptcFr';
@@ -18,7 +18,7 @@ const { createClient } = window.supabase;
 const db = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const $ = (s, root=document) => root.querySelector(s);
 function $$(s, root=document){ return [...root.querySelectorAll(s)]; }
-const state = { user:null, profile:null, restaurants:[], ratings:{}, favorites:new Set(), map:null, markers:[], editingId:null, lastGeocode:null };
+const state = { user:null, profile:null, restaurants:[], ratings:{}, categoryFilter:'all', map:null, markers:[], editingId:null, lastGeocode:null };
 
 function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function isAdmin(){return state.profile?.role==='admin';}
@@ -27,33 +27,29 @@ function hide(id){$(id).classList.remove('open')}
 function ratingAvg(r){ const s=state.ratings[r.id]; return s ? s.avg : null; }
 function ratingCount(r){ const s=state.ratings[r.id]; return s ? s.count : 0; }
 function starsText(avg){ if(avg==null) return '평점 없음'; const n=Math.round(avg); return '★'.repeat(n)+'☆'.repeat(5-n); }
-function haversine(lat1,lng1,lat2,lng2){
-  const R=6371000, toRad=d=>d*Math.PI/180;
-  const dLat=toRad(lat2-lat1), dLng=toRad(lng2-lng1);
-  const a=Math.sin(dLat/2)**2+Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLng/2)**2;
-  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-}
-function distFromAcademy(r){
-  if(ACADEMY.lat==null||r.lat==null) return Infinity;
-  return haversine(ACADEMY.lat,ACADEMY.lng,r.lat,r.lng);
-}
 
 async function init(){
   await loadSession();
   db.auth.onAuthStateChange(async (_event, session)=>{
     state.user=session?.user||null;
-    await loadProfile(); await loadFavorites();
+    await loadProfile();
     updateAuthUI(); renderList();
   });
   loadKakaoMap();
   $('#sortSelect')?.addEventListener('change', renderList);
-  $('#favOnlyCheck')?.addEventListener('change', renderList);
+  $$('.cat-pill').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      state.categoryFilter = btn.dataset.cat;
+      $$('.cat-pill').forEach(b=>b.classList.toggle('active', b===btn));
+      renderList(); plotMarkers();
+    });
+  });
 }
 
 async function loadSession(){
   const {data}=await db.auth.getSession();
   state.user=data.session?.user||null;
-  await loadProfile(); await loadFavorites();
+  await loadProfile();
   updateAuthUI(); await loadRestaurants(); await loadRatings();
 }
 async function loadProfile(){
@@ -61,15 +57,9 @@ async function loadProfile(){
   const {data,error}=await db.from('profiles').select('id,role').eq('id',state.user.id).maybeSingle();
   if(!error) state.profile=data;
 }
-async function loadFavorites(){
-  state.favorites=new Set();
-  if(!state.user) return;
-  const {data,error}=await db.from('favorites').select('restaurant_id').eq('user_id',state.user.id);
-  if(!error) (data||[]).forEach(f=>state.favorites.add(f.restaurant_id));
-}
 function updateAuthUI(){
   $('#loginBtn').hidden=!!state.user;$('#logoutBtn').hidden=!state.user;$('#addBtn').hidden=!isAdmin();
-  $('#authStatus').textContent=state.user ? `${state.user.email||state.user.user_metadata?.name||'로그인됨'}${isAdmin()?' · 관리자':''}` : '로그인하지 않음';
+  $('#authStatus').textContent=state.user ? `${state.user.email}${isAdmin()?' · 관리자':''}` : '로그인하지 않음';
 }
 
 async function loadRestaurants(){
@@ -92,10 +82,12 @@ async function loadRatings(){
 
 function getVisibleRestaurants(){
   let list=[...state.restaurants];
-  if($('#favOnlyCheck')?.checked) list=list.filter(r=>state.favorites.has(r.id));
+  if(state.categoryFilter && state.categoryFilter!=='all'){
+    list=list.filter(r=>(r.category||'기타')===state.categoryFilter);
+  }
   const sort=$('#sortSelect')?.value;
-  if(sort==='rating') list.sort((a,b)=>(ratingAvg(b)??-1)-(ratingAvg(a)??-1));
-  else if(sort==='distance') list.sort((a,b)=>distFromAcademy(a)-distFromAcademy(b));
+  if(sort==='walk') list.sort((a,b)=>(a.walk_min ?? 999)-(b.walk_min ?? 999));
+  else list.sort((a,b)=>(ratingAvg(b)??-1)-(ratingAvg(a)??-1)); // 기본: 별점순
   return list;
 }
 
@@ -104,7 +96,6 @@ function renderList(){
   if(!list.length){$('#list').innerHTML='<div class="empty">표시할 식당이 없어요.</div>';return;}
   $('#list').innerHTML=list.map(r=>{
     const avg=ratingAvg(r);
-    const isFav=state.favorites.has(r.id);
     return `<div class="food-card" data-id="${r.id}">
       <div>
         <h3><span class="cat-badge" style="background:${categoryColor(r.category)}"></span>${escapeHtml(r.name)}</h3>
@@ -112,35 +103,16 @@ function renderList(){
         <span class="chip">${escapeHtml(r.category||'기타')}</span>
         <span class="chip">⭐ ${avg? avg.toFixed(1)+' ('+ratingCount(r)+')' : '평점 없음'}</span>
       </div>
-      <button class="fav-btn" data-fav="${r.id}">${isFav?'❤️':'🤍'}</button>
+      <span>›</span>
     </div>`;
   }).join('');
-  $$('.food-card').forEach(el=>el.addEventListener('click',(e)=>{
-    if(e.target.closest('.fav-btn')) return;
-    openDetail(el.dataset.id);
-  }));
-  $$('.fav-btn').forEach(btn=>btn.addEventListener('click',(e)=>{
-    e.stopPropagation(); toggleFavorite(Number(btn.dataset.fav));
-  }));
-}
-
-async function toggleFavorite(restaurantId){
-  if(!state.user){ alert('찜하려면 카카오 로그인이 필요해요.'); show('#authOverlay'); return; }
-  if(state.favorites.has(restaurantId)){
-    await db.from('favorites').delete().eq('user_id',state.user.id).eq('restaurant_id',restaurantId);
-    state.favorites.delete(restaurantId);
-  }else{
-    await db.from('favorites').insert({user_id:state.user.id, restaurant_id:restaurantId});
-    state.favorites.add(restaurantId);
-  }
-  renderList();
+  $$('.food-card').forEach(el=>el.addEventListener('click',()=>openDetail(el.dataset.id)));
 }
 
 async function openDetail(id){
   const r=state.restaurants.find(x=>String(x.id)===String(id));if(!r)return;
   const {data:reviews}=await db.from('reviews').select('id,rating,content,author_name,created_at').eq('restaurant_id',r.id).order('created_at',{ascending:false});
   const avg=ratingAvg(r);
-  const isFav=state.favorites.has(r.id);
 
   const reviewFormHtml = `
     <div class="form-actions">
@@ -163,9 +135,7 @@ async function openDetail(id){
 
   $('#detailSheet').innerHTML=`<button class="close-x" id="detailClose">✕</button>
     ${r.image_url?`<img class="detail-image" src="${escapeHtml(r.image_url)}" alt="${escapeHtml(r.name)}">`:''}
-    <h2><span class="cat-badge" style="background:${categoryColor(r.category)}"></span>${escapeHtml(r.name)}
-      <button class="fav-btn" id="detailFavBtn" style="float:right;">${isFav?'❤️':'🤍'}</button>
-    </h2>
+    <h2><span class="cat-badge" style="background:${categoryColor(r.category)}"></span>${escapeHtml(r.name)}</h2>
     <div class="row" style="align-items:center;">
       <span>${starsText(avg)}</span>
       <span class="hint">${avg? avg.toFixed(1)+' / 5 · '+ratingCount(r)+'명 평가' : '아직 평점 없음'}</span>
@@ -187,7 +157,6 @@ async function openDetail(id){
   show('#detailOverlay');$('#detailClose').onclick=()=>hide('#detailOverlay');
   if(isAdmin())$('#editThisBtn').onclick=()=>{hide('#detailOverlay');openForm(r)};
   $('#reviewSubmit').onclick=()=>submitReview(r.id);
-  $('#detailFavBtn').onclick=()=>toggleFavorite(r.id).then(()=>openDetail(r.id));
 }
 
 async function submitReview(restaurantId){
@@ -247,7 +216,10 @@ function clearMarkers(){state.markers.forEach(m=>m.setMap(null));state.markers=[
 function plotMarkers(){
   if(!state.map||!window.kakao)return;
   clearMarkers();
-  const rows=state.restaurants.filter(r=>r.lat!=null&&r.lng!=null);
+  let rows=state.restaurants.filter(r=>r.lat!=null&&r.lng!=null);
+  if(state.categoryFilter && state.categoryFilter!=='all'){
+    rows=rows.filter(r=>(r.category||'기타')===state.categoryFilter);
+  }
   const bounds=new kakao.maps.LatLngBounds();
   rows.forEach(r=>{
     const pos=new kakao.maps.LatLng(r.lat,r.lng);
@@ -272,13 +244,6 @@ function geocodeAddress(address){return new Promise((resolve,reject)=>{if(!windo
 
 $('#loginBtn').onclick=()=>show('#authOverlay');$('#authClose').onclick=()=>hide('#authOverlay');
 $('#authForm').onsubmit=async e=>{e.preventDefault();const email=$('#email').value.trim(),password=$('#password').value;const {error}=await db.auth.signInWithPassword({email,password});$('#authMessage').textContent=error?error.message:'로그인되었습니다.';if(!error)hide('#authOverlay')};
-$('#kakaoLoginBtn')?.addEventListener('click', async ()=>{
-  const {error}=await db.auth.signInWithOAuth({
-    provider: 'kakao',
-    options: { redirectTo: location.href, scopes: 'profile_nickname profile_image' }
-  });
-  if(error) $('#authMessage').textContent = error.message;
-});
 $('#logoutBtn').onclick=async()=>{await db.auth.signOut()};
 
 init();

@@ -8,18 +8,21 @@
   <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@700&family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
   <style>
-    .filter-bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 16px; font-size:0.85rem; }
+    .filter-bar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0 10px; font-size:0.85rem; }
     .filter-bar select{ padding:6px 8px; border-radius:8px; border:2px solid var(--line,#D8CBA8); }
-    .filter-bar label{ display:flex; align-items:center; gap:5px; cursor:pointer; }
-    .fav-btn{ background:none; border:none; font-size:1.2rem; cursor:pointer; line-height:1; padding:2px 4px; }
+    .cat-filter{ display:flex; gap:8px; flex-wrap:wrap; margin:0 0 16px; }
+    .cat-pill{
+      border:2px solid var(--c, var(--line,#D8CBA8));
+      background:#fff; color:var(--c,#555);
+      padding:5px 12px; border-radius:999px; font-size:0.8rem; font-weight:700; cursor:pointer;
+    }
+    .cat-pill.active{ background:var(--c, var(--ink,#2B2E4A)); color:#fff; }
     .cat-badge{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }
     .detail-image{ width:100%; max-height:180px; object-fit:cover; border-radius:12px; margin-bottom:10px; }
-    .food-card{ position:relative; }
-    .food-card .fav-btn{ position:relative; z-index:2; }
   </style>
 </head>
 <body>
-<header><div class="wrap header-inner"><h1>오늘 뭐 먹지?</h1><p>아무거나 먹긴 싫어</p></div></header>
+<header><div class="wrap header-inner"><h1>오늘 뭐먹지?</h1><p>아무거나 먹긴 싫은데</p></div></header>
 <main class="wrap">
   <div class="toolbar">
     <div id="authStatus" class="auth-status">로그인하지 않음</div>
@@ -31,11 +34,19 @@
   </div>
   <div class="filter-bar">
     <select id="sortSelect">
-      <option value="default">기본순</option>
-      <option value="rating">평점순</option>
-      <option value="distance">거리순 (학원 기준)</option>
+      <option value="rating">별점순</option>
+      <option value="walk">도보 적은 순</option>
     </select>
-    <label><input type="checkbox" id="favOnlyCheck"> 찜한 곳만 보기</label>
+  </div>
+  <div class="cat-filter" id="catFilter">
+    <button class="cat-pill active" data-cat="all">전체</button>
+    <button class="cat-pill" data-cat="한식" style="--c:#D9534F">한식</button>
+    <button class="cat-pill" data-cat="중식" style="--c:#F0AD4E">중식</button>
+    <button class="cat-pill" data-cat="일식" style="--c:#5BC0DE">일식</button>
+    <button class="cat-pill" data-cat="양식" style="--c:#9B59B6">양식</button>
+    <button class="cat-pill" data-cat="분식" style="--c:#E67E22">분식</button>
+    <button class="cat-pill" data-cat="카페/디저트" style="--c:#8B5E3C">카페/디저트</button>
+    <button class="cat-pill" data-cat="기타" style="--c:#7F8C8D">기타</button>
   </div>
   <div id="map"></div>
   <p class="map-note" id="mapNote">지도를 불러오는 중...</p>
@@ -79,9 +90,6 @@
     <div class="form-actions"><button type="submit" class="btn primary grow">로그인</button></div>
     <p id="authMessage" class="hint"></p>
   </form>
-  <div class="form-actions">
-    <button type="button" class="btn grow" id="kakaoLoginBtn" style="background:#FEE500;border-color:#FEE500;color:#3C1E1E;">카카오로 로그인</button>
-  </div>
 </div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
