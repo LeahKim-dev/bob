@@ -146,7 +146,6 @@ async function openDetail(id){
       ${r.phone?`<span class="chip"><a href="tel:${escapeHtml(r.phone.replace(/[^0-9+]/g,''))}" style="color:inherit;text-decoration:none;">☎ ${escapeHtml(r.phone)}</a></span>`:''}
     </div>
     ${r.hours?`<p><strong>영업시간</strong><br>${escapeHtml(r.hours)}</p>`:''}
-    <p style="color:#6b6551;font-size:.9rem">${escapeHtml(r.address)}</p>
     <p><strong>대표메뉴</strong><br>${escapeHtml(r.menu||'미등록')}</p>
     <div class="links">${r.naver_url?`<a class="link-naver" href="${escapeHtml(r.naver_url)}" target="_blank" rel="noopener">네이버지도</a>`:''}${r.kakao_url?`<a class="link-kakao" href="${escapeHtml(r.kakao_url)}" target="_blank" rel="noopener">카카오맵</a>`:''}</div>
     ${routeLinks}
@@ -179,17 +178,45 @@ function openForm(existing=null){
     f.walkMin.value=existing.walk_min??'';f.menu.value=existing.menu||'';
     if(f.hours) f.hours.value=existing.hours||'';
     f.phone.value=existing.phone||'';
-    if(f.imageUrl) f.imageUrl.value=existing.image_url||'';
+    f.existingImageUrl.value=existing.image_url||'';
+    if(existing.image_url){ $('#imagePreview').src=existing.image_url; $('#imagePreview').style.display='block'; }
+    else { $('#imagePreview').style.display='none'; }
     f.naverUrl.value=existing.naver_url||'';f.kakaoUrl.value=existing.kakao_url||'';
     $('#deleteBtn').hidden=false;$('#geoStatus').textContent=existing.lat?'위치 저장됨':'';
-  }else{$('#deleteBtn').hidden=true;$('#geoStatus').textContent='';}
+  }else{$('#deleteBtn').hidden=true;$('#geoStatus').textContent='';$('#imagePreview').style.display='none';}
   show('#formOverlay');
 }
 $('#addBtn').onclick=()=>openForm();$('#formClose').onclick=()=>hide('#formOverlay');
+const imageFileInput = $('#foodForm input[name="imageFile"]');
+imageFileInput?.addEventListener('change', (e)=>{
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=()=>{ $('#imagePreview').src=reader.result; $('#imagePreview').style.display='block'; };
+  reader.readAsDataURL(file);
+});
 $('#geocodeBtn').onclick=async()=>{const f=$('#foodForm');const addr=f.address.value.trim();const name=f.name.value.trim();if(!addr)return $('#geoStatus').textContent='주소를 먼저 입력해주세요.';$('#geoStatus').textContent='찾는 중...';try{state.lastGeocode=await geocodeAddress(addr,name);$('#geoStatus').textContent='위치를 찾았어요.'}catch(e){$('#geoStatus').textContent='위치를 찾지 못했어요.'}};
 $('#foodForm').onsubmit=async e=>{
   e.preventDefault();if(!isAdmin())return;
   const f=e.target,coord=state.lastGeocode;
+  const submitBtn=f.querySelector('button[type=submit]');
+  submitBtn.disabled=true; submitBtn.textContent='저장 중...';
+
+  let imageUrl = f.existingImageUrl.value || null;
+  const file = f.imageFile.files[0];
+  if(file){
+    const ext = file.name.split('.').pop();
+    const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { error: upErr } = await db.storage.from('restaurant-images').upload(path, file, { upsert:false });
+    if(upErr){
+      alert('이미지 업로드 실패: ' + upErr.message);
+      submitBtn.disabled=false; submitBtn.textContent='저장';
+      return;
+    }
+    const { data: pub } = db.storage.from('restaurant-images').getPublicUrl(path);
+    imageUrl = pub.publicUrl;
+  }
+
   const payload={
     name:f.name.value.trim(),address:f.address.value.trim(),
     category:f.category?f.category.value:null,
@@ -197,13 +224,14 @@ $('#foodForm').onsubmit=async e=>{
     menu:f.menu.value.trim()||null,
     hours:f.hours?f.hours.value.trim()||null:null,
     phone:f.phone.value.trim()||null,
-    image_url:f.imageUrl?f.imageUrl.value.trim()||null:null,
+    image_url:imageUrl,
     naver_url:f.naverUrl.value.trim()||null,kakao_url:f.kakaoUrl.value.trim()||null,
     lat:coord?.lat??null,lng:coord?.lng??null
   };
   let result;
   if(state.editingId)result=await db.from('restaurants').update(payload).eq('id',state.editingId);
   else result=await db.from('restaurants').insert(payload);
+  submitBtn.disabled=false; submitBtn.textContent='저장';
   if(result.error)return alert(result.error.message);
   hide('#formOverlay');await loadRestaurants()
 };
