@@ -24,12 +24,6 @@
 <body>
 <header><div class="wrap header-inner"><h1>오늘 뭐먹지?</h1><p>아무거나 먹긴 싫은데</p></div></header>
 <main class="wrap">
-  <div class="filter-bar">
-    <select id="sortSelect">
-      <option value="rating">별점순</option>
-      <option value="walk">도보 적은 순</option>
-    </select>
-  </div>
   <div id="map"></div>
   <p class="map-note" id="mapNote">지도를 불러오는 중...</p>
   <div class="cat-filter" id="catFilter">
@@ -41,6 +35,10 @@
     <button class="cat-pill" data-cat="분식" style="--c:#E67E22">분식</button>
     <button class="cat-pill" data-cat="카페/디저트" style="--c:#8B5E3C">카페/디저트</button>
     <button class="cat-pill" data-cat="기타" style="--c:#7F8C8D">기타</button>
+    <select id="sortSelect" style="margin-left:auto;">
+      <option value="rating">별점순</option>
+      <option value="walk">도보 적은 순</option>
+    </select>
   </div>
   <div class="list" id="list"><div class="empty">식당 정보를 불러오는 중...</div></div>
 </main>
