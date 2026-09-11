@@ -72,10 +72,10 @@
     <label>대표메뉴 / 가격</label><input name="menu" placeholder="예: 칼국수 8,000원">
     <label>영업시간</label><input name="hours" placeholder="예: 매일 11:00-21:00 (브레이크타임 15-17시)">
     <label>전화번호</label><input name="phone" placeholder="예: 02-1234-5678">
-    <label>대표 이미지</label>
-    <input type="file" name="imageFile" accept="image/*">
-    <img id="imagePreview" style="max-width:140px;display:none;margin:8px 0;border-radius:10px;">
-    <input type="hidden" name="existingImageUrl">
+    <label>대표 이미지 (여러 장 가능)</label>
+    <input type="file" name="imageFiles" accept="image/*" multiple>
+    <div id="imagePreviewList" style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;"></div>
+    <input type="hidden" name="existingImageUrls">
     <label>네이버 지도 링크</label><input name="naverUrl" type="url" placeholder="https://map.naver.com/...">
     <label>카카오맵 링크</label><input name="kakaoUrl" type="url" placeholder="https://place.map.kakao.com/...">
     <div class="form-actions"><button type="button" class="btn" id="geocodeBtn">📍 주소로 위치 찾기</button><span id="geoStatus" class="hint"></span></div>

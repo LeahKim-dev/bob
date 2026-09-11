@@ -19,6 +19,7 @@ const db = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 const $ = (s, root=document) => root.querySelector(s);
 function $$(s, root=document){ return [...root.querySelectorAll(s)]; }
 const state = { user:null, profile:null, restaurants:[], ratings:{}, categoryFilter:'all', map:null, markers:[], editingId:null, lastGeocode:null };
+let formImages = { kept:[], pendingFiles:[] };
 
 function escapeHtml(s=''){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function isAdmin(){return state.profile?.role==='admin';}
@@ -139,8 +140,14 @@ async function openDetail(id){
          href="nmap://route/walk?slat=${ACADEMY.lat}&slng=${ACADEMY.lng}&sname=${encodeURIComponent(ACADEMY.name||'학원')}&dlat=${r.lat}&dlng=${r.lng}&dname=${encodeURIComponent(r.name)}&appname=${encodeURIComponent(location.href)}">네이버지도 길찾기</a>
     </div>` : '';
 
+  const images = (r.image_urls && r.image_urls.length) ? r.image_urls : (r.image_url ? [r.image_url] : []);
+  const galleryHtml = images.length ? `
+    <div style="display:flex;gap:6px;overflow-x:auto;margin-bottom:10px;">
+      ${images.map(url=>`<img src="${escapeHtml(url)}" style="width:100px;height:100px;object-fit:cover;border-radius:10px;cursor:zoom-in;flex-shrink:0;" onclick="window.openLightbox('${escapeHtml(url)}')">`).join('')}
+    </div>` : '';
+
   $('#detailSheet').innerHTML=`<button class="close-x" id="detailClose">✕</button>
-    ${r.image_url?`<img class="detail-image" src="${escapeHtml(r.image_url)}" alt="${escapeHtml(r.name)}" style="cursor:zoom-in;" onclick="window.openLightbox('${escapeHtml(r.image_url)}')">`:''}
+    ${galleryHtml}
     <h2><span class="cat-badge" style="background:${categoryColor(r.category)}"></span>${escapeHtml(r.name)}</h2>
     <div class="row" style="align-items:center;">
       <span>${starsText(avg)}</span>
@@ -174,9 +181,31 @@ async function submitReview(restaurantId){
   else { await loadRatings(); openDetail(restaurantId); }
 }
 
+function renderImagePreview(){
+  const box = $('#imagePreviewList');
+  const thumbs = [];
+  formImages.kept.forEach((url, i)=>{
+    thumbs.push(`<div style="position:relative;">
+      <img src="${url}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;">
+      <button type="button" data-kept="${i}" style="position:absolute;top:-6px;right:-6px;background:#b3413c;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;">✕</button>
+    </div>`);
+  });
+  formImages.pendingFiles.forEach((item, i)=>{
+    thumbs.push(`<div style="position:relative;">
+      <img src="${item.preview}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;opacity:.85;">
+      <button type="button" data-pending="${i}" style="position:absolute;top:-6px;right:-6px;background:#b3413c;color:#fff;border:none;border-radius:50%;width:20px;height:20px;font-size:12px;cursor:pointer;">✕</button>
+    </div>`);
+  });
+  box.innerHTML = thumbs.join('');
+  $$('button[data-kept]', box).forEach(btn=>btn.onclick=()=>{ formImages.kept.splice(Number(btn.dataset.kept),1); renderImagePreview(); });
+  $$('button[data-pending]', box).forEach(btn=>btn.onclick=()=>{ formImages.pendingFiles.splice(Number(btn.dataset.pending),1); renderImagePreview(); });
+}
+
 function openForm(existing=null){
   if(!isAdmin())return alert('관리자만 식당 정보를 관리할 수 있어요.');
   state.editingId=existing?.id||null;state.lastGeocode=existing?.lat?{lat:existing.lat,lng:existing.lng}:null;$('#formTitle').textContent=existing?'식당 수정':'식당 추가';$('#foodForm').reset();
+  formImages = { kept: existing ? (existing.image_urls && existing.image_urls.length ? [...existing.image_urls] : (existing.image_url ? [existing.image_url] : [])) : [], pendingFiles: [] };
+  renderImagePreview();
   if(existing){
     const f=$('#foodForm');
     f.name.value=existing.name;f.address.value=existing.address;
@@ -184,22 +213,24 @@ function openForm(existing=null){
     f.walkMin.value=existing.walk_min??'';f.menu.value=existing.menu||'';
     if(f.hours) f.hours.value=existing.hours||'';
     f.phone.value=existing.phone||'';
-    f.existingImageUrl.value=existing.image_url||'';
-    if(existing.image_url){ $('#imagePreview').src=existing.image_url; $('#imagePreview').style.display='block'; }
-    else { $('#imagePreview').style.display='none'; }
     f.naverUrl.value=existing.naver_url||'';f.kakaoUrl.value=existing.kakao_url||'';
     $('#deleteBtn').hidden=false;$('#geoStatus').textContent=existing.lat?'위치 저장됨':'';
-  }else{$('#deleteBtn').hidden=true;$('#geoStatus').textContent='';$('#imagePreview').style.display='none';}
+  }else{$('#deleteBtn').hidden=true;$('#geoStatus').textContent='';}
   show('#formOverlay');
 }
 $('#addBtn').onclick=()=>openForm();$('#formClose').onclick=()=>hide('#formOverlay');
-const imageFileInput = $('#foodForm input[name="imageFile"]');
+const imageFileInput = $('#foodForm input[name="imageFiles"]');
 imageFileInput?.addEventListener('change', (e)=>{
-  const file=e.target.files[0];
-  if(!file) return;
-  const reader=new FileReader();
-  reader.onload=()=>{ $('#imagePreview').src=reader.result; $('#imagePreview').style.display='block'; };
-  reader.readAsDataURL(file);
+  const files=[...e.target.files];
+  files.forEach(file=>{
+    const reader=new FileReader();
+    reader.onload=()=>{
+      formImages.pendingFiles.push({ file, preview: reader.result });
+      renderImagePreview();
+    };
+    reader.readAsDataURL(file);
+  });
+  e.target.value=''; // 같은 파일 다시 선택 가능하게 초기화
 });
 $('#geocodeBtn').onclick=async()=>{const f=$('#foodForm');const addr=f.address.value.trim();const name=f.name.value.trim();if(!addr)return $('#geoStatus').textContent='주소를 먼저 입력해주세요.';$('#geoStatus').textContent='찾는 중...';try{state.lastGeocode=await geocodeAddress(addr,name);$('#geoStatus').textContent='위치를 찾았어요.'}catch(e){$('#geoStatus').textContent='위치를 찾지 못했어요.'}};
 $('#foodForm').onsubmit=async e=>{
@@ -208,9 +239,9 @@ $('#foodForm').onsubmit=async e=>{
   const submitBtn=f.querySelector('button[type=submit]');
   submitBtn.disabled=true; submitBtn.textContent='저장 중...';
 
-  let imageUrl = f.existingImageUrl.value || null;
-  const file = f.imageFile.files[0];
-  if(file){
+  const uploadedUrls=[];
+  for(const item of formImages.pendingFiles){
+    const file=item.file;
     const ext = file.name.split('.').pop();
     const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
     const { error: upErr } = await db.storage.from('restaurant-images').upload(path, file, { upsert:false });
@@ -220,8 +251,9 @@ $('#foodForm').onsubmit=async e=>{
       return;
     }
     const { data: pub } = db.storage.from('restaurant-images').getPublicUrl(path);
-    imageUrl = pub.publicUrl;
+    uploadedUrls.push(pub.publicUrl);
   }
+  const finalImageUrls = [...formImages.kept, ...uploadedUrls];
 
   const payload={
     name:f.name.value.trim(),address:f.address.value.trim(),
@@ -230,7 +262,8 @@ $('#foodForm').onsubmit=async e=>{
     menu:f.menu.value.trim()||null,
     hours:f.hours?f.hours.value.trim()||null:null,
     phone:f.phone.value.trim()||null,
-    image_url:imageUrl,
+    image_urls: finalImageUrls.length ? finalImageUrls : null,
+    image_url: finalImageUrls[0] || null,
     naver_url:f.naverUrl.value.trim()||null,kakao_url:f.kakaoUrl.value.trim()||null,
     lat:coord?.lat??null,lng:coord?.lng??null
   };
