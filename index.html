@@ -24,20 +24,14 @@
 <body>
 <header><div class="wrap header-inner"><h1>오늘 뭐먹지?</h1><p>아무거나 먹긴 싫은데</p></div></header>
 <main class="wrap">
-  <div class="toolbar">
-    <div id="authStatus" class="auth-status">로그인하지 않음</div>
-    <div class="toolbar-actions">
-      <button class="btn small" id="loginBtn">로그인</button>
-      <button class="btn small" id="logoutBtn" hidden>로그아웃</button>
-      <button class="btn small primary" id="addBtn" hidden>+ 식당 추가</button>
-    </div>
-  </div>
   <div class="filter-bar">
     <select id="sortSelect">
       <option value="rating">별점순</option>
       <option value="walk">도보 적은 순</option>
     </select>
   </div>
+  <div id="map"></div>
+  <p class="map-note" id="mapNote">지도를 불러오는 중...</p>
   <div class="cat-filter" id="catFilter">
     <button class="cat-pill active" data-cat="all">전체</button>
     <button class="cat-pill" data-cat="한식" style="--c:#D9534F">한식</button>
@@ -48,10 +42,17 @@
     <button class="cat-pill" data-cat="카페/디저트" style="--c:#8B5E3C">카페/디저트</button>
     <button class="cat-pill" data-cat="기타" style="--c:#7F8C8D">기타</button>
   </div>
-  <div id="map"></div>
-  <p class="map-note" id="mapNote">지도를 불러오는 중...</p>
   <div class="list" id="list"><div class="empty">식당 정보를 불러오는 중...</div></div>
 </main>
+
+<footer class="wrap toolbar" style="margin-top:24px; padding-top:16px; border-top:2px solid var(--line,#D8CBA8);">
+  <div id="authStatus" class="auth-status">로그인하지 않음</div>
+  <div class="toolbar-actions">
+    <button class="btn small" id="loginBtn">로그인</button>
+    <button class="btn small" id="logoutBtn" hidden>로그아웃</button>
+    <button class="btn small primary" id="addBtn" hidden>+ 식당 추가</button>
+  </div>
+</footer>
 
 <div class="overlay" id="detailOverlay"><div class="sheet" id="detailSheet"></div></div>
 <div class="overlay" id="formOverlay"><div class="sheet">
