@@ -186,7 +186,7 @@ function openForm(existing=null){
   show('#formOverlay');
 }
 $('#addBtn').onclick=()=>openForm();$('#formClose').onclick=()=>hide('#formOverlay');
-$('#geocodeBtn').onclick=async()=>{const addr=$('#foodForm').address.value.trim();if(!addr)return $('#geoStatus').textContent='주소를 먼저 입력해주세요.';$('#geoStatus').textContent='찾는 중...';try{state.lastGeocode=await geocodeAddress(addr);$('#geoStatus').textContent='위치를 찾았어요.'}catch(e){$('#geoStatus').textContent='위치를 찾지 못했어요.'}};
+$('#geocodeBtn').onclick=async()=>{const f=$('#foodForm');const addr=f.address.value.trim();const name=f.name.value.trim();if(!addr)return $('#geoStatus').textContent='주소를 먼저 입력해주세요.';$('#geoStatus').textContent='찾는 중...';try{state.lastGeocode=await geocodeAddress(addr,name);$('#geoStatus').textContent='위치를 찾았어요.'}catch(e){$('#geoStatus').textContent='위치를 찾지 못했어요.'}};
 $('#foodForm').onsubmit=async e=>{
   e.preventDefault();if(!isAdmin())return;
   const f=e.target,coord=state.lastGeocode;
@@ -212,6 +212,24 @@ $('#deleteBtn').onclick=async()=>{if(!state.editingId||!confirm('이 식당을 �
 function loadKakaoMap(){
   kakao.maps.load(()=>{const center=ACADEMY.lat&&ACADEMY.lng?new kakao.maps.LatLng(ACADEMY.lat,ACADEMY.lng):new kakao.maps.LatLng(37.5665,126.978);state.map=new kakao.maps.Map($('#map'),{center,level:4});$('#mapNote').textContent='카카오맵';plotMarkers()});
 }
+function spreadOverlapping(rows){
+  const groups={};
+  rows.forEach(r=>{
+    const key=r.lat.toFixed(5)+','+r.lng.toFixed(5);
+    (groups[key]=groups[key]||[]).push(r);
+  });
+  Object.values(groups).forEach(group=>{
+    if(group.length<2) return;
+    const radius=0.00012; // 약 12~13m 정도 반경으로 원형 배치
+    group.forEach((r,i)=>{
+      const angle=(2*Math.PI*i)/group.length;
+      r._plotLat = r.lat + radius*Math.cos(angle);
+      r._plotLng = r.lng + radius*Math.sin(angle)/Math.cos(r.lat*Math.PI/180);
+    });
+  });
+  return rows;
+}
+
 function clearMarkers(){state.markers.forEach(m=>m.setMap(null));state.markers=[]}
 function plotMarkers(){
   if(!state.map||!window.kakao)return;
@@ -220,9 +238,11 @@ function plotMarkers(){
   if(state.categoryFilter && state.categoryFilter!=='all'){
     rows=rows.filter(r=>(r.category||'기타')===state.categoryFilter);
   }
+  rows=spreadOverlapping(rows);
   const bounds=new kakao.maps.LatLngBounds();
   rows.forEach(r=>{
-    const pos=new kakao.maps.LatLng(r.lat,r.lng);
+    const plat=r._plotLat ?? r.lat, plng=r._plotLng ?? r.lng;
+    const pos=new kakao.maps.LatLng(plat,plng);
     const m=new kakao.maps.Marker({position:pos,map:state.map});
     kakao.maps.event.addListener(m,'click',()=>openDetail(r.id));
     state.markers.push(m);
@@ -240,7 +260,35 @@ function plotMarkers(){
   });
   if(rows.length)state.map.setBounds(bounds);
 }
-function geocodeAddress(address){return new Promise((resolve,reject)=>{if(!window.kakao?.maps?.services)return reject('no sdk');const geocoder=new kakao.maps.services.Geocoder();geocoder.addressSearch(address,(result,status)=>{if(status===kakao.maps.services.Status.OK)resolve({lat:parseFloat(result[0].y),lng:parseFloat(result[0].x)});else reject(status)})})}
+function geocodeAddress(address, name){
+  return new Promise((resolve,reject)=>{
+    if(!window.kakao?.maps?.services) return reject('no sdk');
+    const finish=(lat,lng)=>resolve({lat,lng});
+
+    const fallbackToAddress=()=>{
+      const geocoder=new kakao.maps.services.Geocoder();
+      geocoder.addressSearch(address,(result,status)=>{
+        if(status===kakao.maps.services.Status.OK) finish(parseFloat(result[0].y),parseFloat(result[0].x));
+        else reject(status);
+      });
+    };
+
+    // 상호명이 있으면 키워드 검색을 먼저 시도 (건물 내 개별 매장 좌표가 더 정확함)
+    if(name && name.trim()){
+      const places=new kakao.maps.services.Places();
+      const centerOpt = (ACADEMY.lat!=null) ? { location: new kakao.maps.LatLng(ACADEMY.lat, ACADEMY.lng), radius: 3000 } : {};
+      places.keywordSearch(`${name} ${address}`, (result, status)=>{
+        if(status===kakao.maps.services.Status.OK && result.length){
+          finish(parseFloat(result[0].y), parseFloat(result[0].x));
+        } else {
+          fallbackToAddress();
+        }
+      }, centerOpt);
+    } else {
+      fallbackToAddress();
+    }
+  });
+}
 
 $('#loginBtn').onclick=()=>show('#authOverlay');$('#authClose').onclick=()=>hide('#authOverlay');
 $('#authForm').onsubmit=async e=>{e.preventDefault();const email=$('#email').value.trim(),password=$('#password').value;const {error}=await db.auth.signInWithPassword({email,password});$('#authMessage').textContent=error?error.message:'로그인되었습니다.';if(!error)hide('#authOverlay')};
