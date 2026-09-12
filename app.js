@@ -122,8 +122,7 @@ async function openDetail(id){
   const avg=ratingAvg(r);
 
   const reviewFormHtml = `
-    <p class="hint" style="margin:4px 0 6px;">별점을 눌러 리뷰를 남겨보세요.</p>
-    <div class="star-picker-static" style="font-size:1.8rem; letter-spacing:4px; cursor:pointer;">
+    <div class="star-picker-static" style="display:inline-flex;font-size:1.4rem;letter-spacing:2px;cursor:pointer;vertical-align:middle;">
       ${[1,2,3,4,5].map(n=>`<span data-star="${n}" style="color:#D8CBA8;">★</span>`).join('')}
     </div>`;
 
@@ -131,13 +130,13 @@ async function openDetail(id){
     <div class="links" style="display:flex;gap:0;align-items:center;margin-top:2px;">
       <a target="_blank" rel="noopener" title="카카오맵 길찾기 (도보)"
          href="http://m.map.kakao.com/scheme/route?sp=${ACADEMY.lat},${ACADEMY.lng}&ep=${r.lat},${r.lng}&by=foot"
-         style="position:relative;display:block;">
+         style="flex:none;padding:0;position:relative;display:block;border-radius:0;">
         <img src="kakao-icon.svg" style="width:32px;height:32px;border-radius:8px 0 0 8px;object-fit:cover;display:block;">
         <span style="position:absolute;bottom:-4px;right:-4px;background:#fff;border-radius:6px;font-size:10px;line-height:1;padding:1px 2px;box-shadow:0 1px 2px rgba(0,0,0,.3);">🚶</span>
       </a>
       <a target="_blank" rel="noopener" title="네이버지도 길찾기 (도보)"
          href="nmap://route/walk?slat=${ACADEMY.lat}&slng=${ACADEMY.lng}&sname=${encodeURIComponent(ACADEMY.name||'학원')}&dlat=${r.lat}&dlng=${r.lng}&dname=${encodeURIComponent(r.name)}&appname=${encodeURIComponent(location.href)}"
-         style="position:relative;display:block;">
+         style="flex:none;padding:0;position:relative;display:block;border-radius:0;">
         <img src="naver-icon.webp" style="width:32px;height:32px;border-radius:0 8px 8px 0;object-fit:cover;display:block;">
         <span style="position:absolute;bottom:-4px;right:-4px;background:#fff;border-radius:6px;font-size:10px;line-height:1;padding:1px 2px;box-shadow:0 1px 2px rgba(0,0,0,.3);">🚶</span>
       </a>
@@ -164,14 +163,14 @@ async function openDetail(id){
     ${r.hours?`<p><strong>영업시간</strong><br>${escapeHtml(r.hours)}</p>`:''}
     <p><strong>대표메뉴</strong><br>${escapeHtml(r.menu||'미등록')}</p>
     <div class="links" style="display:flex;gap:0;align-items:center;">
-      ${r.naver_url?`<a href="${escapeHtml(r.naver_url)}" target="_blank" rel="noopener" title="네이버지도에서 보기">
+      ${r.naver_url?`<a href="${escapeHtml(r.naver_url)}" target="_blank" rel="noopener" title="네이버지도에서 보기" style="flex:none;padding:0;display:block;border-radius:0;">
          <img src="naver-icon.webp" style="width:32px;height:32px;border-radius:8px 0 0 8px;object-fit:cover;display:block;"></a>`:''}
-      ${r.kakao_url?`<a href="${escapeHtml(r.kakao_url)}" target="_blank" rel="noopener" title="카카오맵에서 보기">
+      ${r.kakao_url?`<a href="${escapeHtml(r.kakao_url)}" target="_blank" rel="noopener" title="카카오맵에서 보기" style="flex:none;padding:0;display:block;border-radius:0;">
          <img src="kakao-icon.svg" style="width:32px;height:32px;border-radius:0 8px 8px 0;object-fit:cover;display:block;"></a>`:''}
     </div>
     ${routeLinks}
     ${isAdmin()?'<div class="form-actions"><button class="btn" id="editThisBtn">수정</button></div>':''}
-    <div class="review-form"><strong>리뷰</strong>${reviewFormHtml}</div>
+    <div class="review-form" style="display:flex;align-items:center;gap:10px;"><strong>리뷰</strong>${reviewFormHtml}</div>
     <div id="reviews">${(reviews||[]).map(v=>`<div class="review"><strong>${'★'.repeat(v.rating)}${'☆'.repeat(5-v.rating)}</strong>${v.author_name?` <span class="hint">- ${escapeHtml(v.author_name)}</span>`:''}<p>${escapeHtml(v.content)}</p></div>`).join('')||'<p class="hint">아직 리뷰가 없어요.</p>'}</div>`;
 
   show('#detailOverlay');$('#detailClose').onclick=()=>hide('#detailOverlay');
