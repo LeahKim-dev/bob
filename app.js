@@ -189,7 +189,7 @@ function openReviewPopup(restaurantId, initialRating){
       ${[1,2,3,4,5].map(n=>`<span data-star="${n}" style="color:${n<=picked?'#D9A441':'#D8CBA8'};">★</span>`).join('')}
     </div>
     <label>닉네임 (선택)</label>
-    <input id="popupAuthor" placeholder="예: 익명의 새싹">
+    <input id="popupAuthor" placeholder="예: 익명의 학원생">
     <label>후기</label>
     <textarea id="popupContent" rows="4" placeholder="먹어본 후기를 남겨주세요."></textarea>
     <div class="form-actions"><button class="btn primary grow" id="popupSubmit">등록</button></div>`;
@@ -393,5 +393,82 @@ function geocodeAddress(address, name){
 $('#loginBtn').onclick=()=>show('#authOverlay');$('#authClose').onclick=()=>hide('#authOverlay');
 $('#authForm').onsubmit=async e=>{e.preventDefault();const email=$('#email').value.trim(),password=$('#password').value;const {error}=await db.auth.signInWithPassword({email,password});$('#authMessage').textContent=error?error.message:'로그인되었습니다.';if(!error)hide('#authOverlay')};
 $('#logoutBtn').onclick=async()=>{await db.auth.signOut()};
+
+/* ===== 룰렛 ===== */
+let rouletteList=[]; let rouletteRotation=0; let rouletteTarget=null;
+
+function drawRoulette(list){
+  const canvas=$('#rouletteCanvas');
+  const ctx=canvas.getContext('2d');
+  const size=canvas.width, cx=size/2, cy=size/2, radius=size/2-2;
+  ctx.clearRect(0,0,size,size);
+  const n=list.length;
+  const seg=(2*Math.PI)/n;
+  list.forEach((r,i)=>{
+    const start=-Math.PI/2 + i*seg; // 12시 방향부터 시작
+    const end=start+seg;
+    ctx.beginPath();
+    ctx.moveTo(cx,cy);
+    ctx.arc(cx,cy,radius,start,end);
+    ctx.closePath();
+    ctx.fillStyle=categoryColor(r.category);
+    ctx.globalAlpha = 0.55 + (i%2)*0.25;
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle='#fff';
+    ctx.lineWidth=1.5;
+    ctx.stroke();
+
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.rotate(start+seg/2);
+    ctx.textAlign='right';
+    ctx.fillStyle='#fff';
+    ctx.font='bold 12px sans-serif';
+    const label = r.name.length>7 ? r.name.slice(0,6)+'…' : r.name;
+    ctx.fillText(label, radius-10, 4);
+    ctx.restore();
+  });
+}
+
+function openRoulette(){
+  rouletteList = getVisibleRestaurants();
+  if(rouletteList.length < 2){ alert('룰렛을 돌리려면 목록에 식당이 2개 이상 있어야 해요.'); return; }
+  drawRoulette(rouletteList);
+  $('#rouletteResult').textContent='';
+  $('#rouletteGoBtn').style.display='none';
+  $('#rouletteSpinBtn').disabled=false;
+  rouletteTarget=null;
+  show('#rouletteOverlay');
+}
+
+function spinRoulette(){
+  const n=rouletteList.length;
+  const targetIndex=Math.floor(Math.random()*n);
+  const seg=360/n;
+  const targetCenterDeg = targetIndex*seg + seg/2;
+  const currentMod = ((rouletteRotation % 360)+360)%360;
+  const extraSpins = 5*360;
+  const delta = ((360 - targetCenterDeg) - currentMod + 360*10) % 360;
+  rouletteRotation += extraSpins + delta;
+
+  const canvas=$('#rouletteCanvas');
+  canvas.style.transform = `rotate(${rouletteRotation}deg)`;
+  $('#rouletteSpinBtn').disabled=true;
+  $('#rouletteResult').textContent='';
+  $('#rouletteGoBtn').style.display='none';
+
+  setTimeout(()=>{
+    rouletteTarget = rouletteList[targetIndex];
+    $('#rouletteResult').textContent = `🎉 ${rouletteTarget.name}!`;
+    $('#rouletteSpinBtn').disabled=false;
+    $('#rouletteGoBtn').style.display='inline-block';
+  }, 4100);
+}
+
+$('#rouletteBtn').onclick=openRoulette;
+$('#rouletteClose').onclick=()=>hide('#rouletteOverlay');
+$('#rouletteSpinBtn').onclick=spinRoulette;
+$('#rouletteGoBtn').onclick=()=>{ if(!rouletteTarget) return; hide('#rouletteOverlay'); openDetail(rouletteTarget.id); };
 
 init();
