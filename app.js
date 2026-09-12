@@ -189,7 +189,7 @@ function openReviewPopup(restaurantId, initialRating){
       ${[1,2,3,4,5].map(n=>`<span data-star="${n}" style="color:${n<=picked?'#D9A441':'#D8CBA8'};">★</span>`).join('')}
     </div>
     <label>닉네임 (선택)</label>
-    <input id="popupAuthor" placeholder="예: 익명의 학원생">
+    <input id="popupAuthor" placeholder="예: 익명의 새싹">
     <label>후기</label>
     <textarea id="popupContent" rows="4" placeholder="먹어본 후기를 남겨주세요."></textarea>
     <div class="form-actions"><button class="btn primary grow" id="popupSubmit">등록</button></div>`;
